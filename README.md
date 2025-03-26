@@ -9,7 +9,7 @@ Currently contains:
 
 This node provides an easy way to load images from a folder along with their corresponding text captions for use in ComfyUI workflows.
 
-https://github.com/user-attachments/assets/ce0313c7-f583-49d9-8410-c2280dde033b
+https://github.com/user-attachments/assets/5a69e701-b921-46b7-88e7-b176ef48bf4a
 
 ### Features
 
