@@ -17,7 +17,6 @@ class FolderImageSelector:
     def __init__(self):
         # Only initialize if not already initialized
         if not hasattr(self, 'initialized'):
-            self.current_index = 0
             self.image_paths = []
             self.last_folder = ""
             self.last_recursive = False
@@ -39,11 +38,17 @@ class FolderImageSelector:
                     "step": 1,
                     "display": "number"
                 }),
+                "index": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 99999999,
+                    "step": 1,
+                    "display": "number"
+                }),
                 "recursive_search": (["True", "False"],),
-                "remember_position": (["True", "False"],),
                 "load_text_file": (["True", "False"],),
-                "reset_position": (["False", "True"],),
             },
+            "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
     RETURN_TYPES = ("IMAGE", "STRING")
@@ -84,7 +89,7 @@ class FolderImageSelector:
         
         return image_paths
 
-    def select_image(self, folder_path, selection_method, seed, recursive_search, remember_position, load_text_file, reset_position):
+    def select_image(self, folder_path, selection_method, seed, index, recursive_search, load_text_file, unique_id=None):
         # Always try to get image paths
         current_image_paths = self.get_image_paths(folder_path, recursive_search)
         
@@ -92,38 +97,27 @@ class FolderImageSelector:
         reset_needed = (
             not self.image_paths or 
             folder_path != self.last_folder or 
-            recursive_search != self.last_recursive or 
-            reset_position == "True"
+            recursive_search != self.last_recursive
         )
         
         if reset_needed:
             self.image_paths = current_image_paths
             self.last_folder = folder_path
             self.last_recursive = recursive_search
-            
-            # Reset index when folder changes or reset is requested
-            self.current_index = 0
         
         if not self.image_paths:
             raise ValueError(f"No images found in {folder_path}")
         
         # Select image path based on the method
         if selection_method == "random":
+            # Use seed for random selection
             random.seed(seed)
             selected_path = random.choice(self.image_paths)
-            # In random mode, don't affect sequential indices
         else:  # sequential
-            if remember_position == "False" or reset_position == "True":
-                # Always start from the beginning
-                selected_path = self.image_paths[0]
-                self.current_index = 1  # Set to 1 to prepare for next image
-            else:
-                # Ensure index is within bounds
-                self.current_index = self.current_index % len(self.image_paths)
-                selected_path = self.image_paths[self.current_index]
-                
-                # Increment index for next time
-                self.current_index = (self.current_index + 1) % len(self.image_paths)
+            # Use index parameter for sequential selection
+            # This will be properly incremented by ComfyUI's control_after_generate
+            image_index = index % len(self.image_paths)
+            selected_path = self.image_paths[image_index]
         
         # Load and convert the image to ComfyUI format
         img = Image.open(selected_path).convert("RGB")
@@ -142,27 +136,22 @@ class FolderImageSelector:
                     print(f"Error reading text file {txt_path}: {e}")
                     text_content = ""
         
+        current_image_index = index % len(self.image_paths) if selection_method == "sequential" else "random"
         print(f"Selected image: {selected_path}")
-        print(f"Loaded text: {text_content}")
-        print(f"Current index: {self.current_index}")
+        print(f"Current index: {current_image_index}")
+        print(f"Text content: {text_content[:50]}..." if len(text_content) > 50 else f"Text content: {text_content}")
         
         return (img_tensor, text_content)
     
     @classmethod
-    def IS_CHANGED(s, folder_path, selection_method, seed, recursive_search, remember_position, load_text_file, reset_position):
-        # Get singleton instance to access current_index
-        instance = FolderImageSelector()
-        
+    def IS_CHANGED(s, folder_path, selection_method, seed, index, recursive_search, load_text_file, unique_id=None):
         # Unique identifier to control re-execution
         if selection_method == "random":
-            return seed  # Unique for each seed in random mode
+            # For random mode, seed determines the selected image
+            return f"{folder_path}_{recursive_search}_{seed}"
         else:  # sequential mode
-            if remember_position == "True" and reset_position == "False":
-                # Include current_index to force re-execution with each workflow run
-                return f"{folder_path}_{recursive_search}_{remember_position}_{reset_position}_{instance.current_index}"
-            else:
-                # If not remembering position, just use the other parameters
-                return f"{folder_path}_{recursive_search}_{remember_position}_{reset_position}"
+            # For sequential mode, index determines the selected image
+            return f"{folder_path}_{recursive_search}_{index}"
 
 
 # Register the node
