@@ -47,25 +47,34 @@ class FolderImageSelector:
         # Determine pattern based on recursive flag
         if recursive == "True":
             for ext in extensions:
-                # Use ** for recursive search
+                # Use ** for recursive search and match both lowercase and uppercase extensions
                 pattern = os.path.join(folder_path, '**', f'*.{ext}')
                 image_paths.extend(glob.glob(pattern, recursive=True))
-                # Also check for uppercase extensions
                 pattern = os.path.join(folder_path, '**', f'*.{ext.upper()}')
                 image_paths.extend(glob.glob(pattern, recursive=True))
         else:
             for ext in extensions:
-                # Direct files in the folder
+                # Direct files in the folder with both lowercase and uppercase extensions
                 pattern = os.path.join(folder_path, f'*.{ext}')
                 image_paths.extend(glob.glob(pattern))
-                # Also check for uppercase extensions
                 pattern = os.path.join(folder_path, f'*.{ext.upper()}')
                 image_paths.extend(glob.glob(pattern))
         
         # Sort paths to ensure consistent ordering
         image_paths.sort()
         
-        return image_paths
+        # Remove potential duplicates due to case-insensitive filesystems
+        unique_paths = []
+        normalized_paths = set()
+        
+        for path in image_paths:
+            # Normalize the path for comparison (lowercase on Windows)
+            normalized = path.lower() if os.name == 'nt' else path
+            if normalized not in normalized_paths:
+                normalized_paths.add(normalized)
+                unique_paths.append(path)
+        
+        return unique_paths
 
     def select_image(self, folder_path, seed, recursive_search, load_text_file):
         # Get image paths
