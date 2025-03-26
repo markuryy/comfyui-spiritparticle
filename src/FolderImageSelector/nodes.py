@@ -6,21 +6,8 @@ import numpy as np
 import torch
 
 class FolderImageSelector:
-    _instance = None
-
-    def __new__(cls):
-        # Implement a singleton pattern to ensure consistent state across executions
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        # Only initialize if not already initialized
-        if not hasattr(self, 'initialized'):
-            self.image_paths = []
-            self.last_folder = ""
-            self.last_recursive = False
-            self.initialized = True
+        pass
     
     @classmethod
     def INPUT_TYPES(s):
@@ -30,7 +17,6 @@ class FolderImageSelector:
                     "multiline": False,
                     "default": "C:/Images",
                 }),
-                "selection_method": (["random", "sequential"],),
                 "seed": ("INT", {
                     "default": 0,
                     "min": 0,
@@ -40,8 +26,7 @@ class FolderImageSelector:
                 }),
                 "recursive_search": (["True", "False"],),
                 "load_text_file": (["True", "False"],),
-            },
-            "hidden": {"unique_id": "UNIQUE_ID"},
+            }
         }
 
     RETURN_TYPES = ("IMAGE", "STRING")
@@ -77,40 +62,21 @@ class FolderImageSelector:
                 pattern = os.path.join(folder_path, f'*.{ext.upper()}')
                 image_paths.extend(glob.glob(pattern))
         
-        # Sort paths to ensure consistent ordering for sequential mode
+        # Sort paths to ensure consistent ordering
         image_paths.sort()
         
         return image_paths
 
-    def select_image(self, folder_path, selection_method, seed, recursive_search, load_text_file, unique_id=None):
-        # Always try to get image paths
-        current_image_paths = self.get_image_paths(folder_path, recursive_search)
+    def select_image(self, folder_path, seed, recursive_search, load_text_file):
+        # Get image paths
+        image_paths = self.get_image_paths(folder_path, recursive_search)
         
-        # Reset conditions
-        reset_needed = (
-            not self.image_paths or 
-            folder_path != self.last_folder or 
-            recursive_search != self.last_recursive
-        )
-        
-        if reset_needed:
-            self.image_paths = current_image_paths
-            self.last_folder = folder_path
-            self.last_recursive = recursive_search
-        
-        if not self.image_paths:
+        if not image_paths:
             raise ValueError(f"No images found in {folder_path}")
         
-        # Select image path based on the method
-        if selection_method == "random":
-            # Use seed for random selection
-            random.seed(seed)
-            selected_path = random.choice(self.image_paths)
-        else:  # sequential
-            # Use seed as index for sequential selection
-            # This will be properly incremented by ComfyUI's control_after_generate for seed
-            image_index = seed % len(self.image_paths)
-            selected_path = self.image_paths[image_index]
+        # Use seed to select image
+        image_index = seed % len(image_paths)
+        selected_path = image_paths[image_index]
         
         # Load and convert the image to ComfyUI format
         img = Image.open(selected_path).convert("RGB")
@@ -129,19 +95,17 @@ class FolderImageSelector:
                     print(f"Error reading text file {txt_path}: {e}")
                     text_content = ""
         
-        current_image_index = seed % len(self.image_paths) if selection_method == "sequential" else "random"
-        print(f"Selected image: {selected_path}")
-        print(f"Current index/seed: {seed}")
-        print(f"Selection mode: {selection_method}")
-        print(f"Text content: {text_content[:50]}..." if len(text_content) > 50 else f"Text content: {text_content}")
+        print(f"Selected image: {selected_path} (index {image_index} of {len(image_paths)})")
+        print(f"Seed: {seed}")
+        if text_content:
+            print(f"Text content: {text_content[:50]}..." if len(text_content) > 50 else f"Text content: {text_content}")
         
         return (img_tensor, text_content)
     
     @classmethod
-    def IS_CHANGED(s, folder_path, selection_method, seed, recursive_search, load_text_file, unique_id=None):
-        # Unique identifier to control re-execution
-        # For both random and sequential modes, seed determines the selected image
-        return f"{folder_path}_{recursive_search}_{selection_method}_{seed}"
+    def IS_CHANGED(s, folder_path, seed, recursive_search, load_text_file):
+        # Changes to seed will determine the selected image
+        return f"{folder_path}_{recursive_search}_{seed}"
 
 
 # Register the node
