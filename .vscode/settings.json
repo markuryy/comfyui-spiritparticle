@@ -1,0 +1,10 @@
+{
+  // Required - change /PATH/TO to the absolute path to ComfyUI.  Windows e.g.: D:/My Folder/ComfyUI/
+  // This pulls in ComfyUI Python types for the extension.
+  "python.analysis.extraPaths": [
+    "/Users/mark/Documents/comfy/ComfyUI",
+    "/Users/mark/Documents/comfy/ComfyUI/custom_nodes/",
+    "M:/ComfyUI_windows_portable_nvidia/ComfyUI_windows_portable/ComfyUI",
+    "M:/ComfyUI_windows_portable_nvidia/ComfyUI_windows_portable/ComfyUI/custom_nodes/",
+  ],
+}
