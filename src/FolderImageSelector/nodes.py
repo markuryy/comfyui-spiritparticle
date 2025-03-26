@@ -111,20 +111,19 @@ class FolderImageSelector:
         if selection_method == "random":
             random.seed(seed)
             selected_path = random.choice(self.image_paths)
-            # In random mode, reset is not relevant
-            self.current_index = 0
+            # In random mode, don't affect sequential indices
         else:  # sequential
             if remember_position == "False" or reset_position == "True":
                 # Always start from the beginning
                 selected_path = self.image_paths[0]
-                self.current_index = 0
+                self.current_index = 1  # Set to 1 to prepare for next image
             else:
                 # Ensure index is within bounds
                 self.current_index = self.current_index % len(self.image_paths)
                 selected_path = self.image_paths[self.current_index]
                 
                 # Increment index for next time
-                self.current_index += 1
+                self.current_index = (self.current_index + 1) % len(self.image_paths)
         
         # Load and convert the image to ComfyUI format
         img = Image.open(selected_path).convert("RGB")
@@ -151,12 +150,19 @@ class FolderImageSelector:
     
     @classmethod
     def IS_CHANGED(s, folder_path, selection_method, seed, recursive_search, remember_position, load_text_file, reset_position):
+        # Get singleton instance to access current_index
+        instance = FolderImageSelector()
+        
         # Unique identifier to control re-execution
         if selection_method == "random":
             return seed  # Unique for each seed in random mode
         else:  # sequential mode
-            # Combine parameters that might affect selection
-            return f"{folder_path}_{recursive_search}_{remember_position}_{reset_position}"
+            if remember_position == "True" and reset_position == "False":
+                # Include current_index to force re-execution with each workflow run
+                return f"{folder_path}_{recursive_search}_{remember_position}_{reset_position}_{instance.current_index}"
+            else:
+                # If not remembering position, just use the other parameters
+                return f"{folder_path}_{recursive_search}_{remember_position}_{reset_position}"
 
 
 # Register the node
