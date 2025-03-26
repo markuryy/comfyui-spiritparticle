@@ -13,7 +13,7 @@ This node provides an easy way to load images from a folder along with their cor
 
 - Select images from a folder with two modes:
   - **Random**: Randomly select images (controlled by seed)
-  - **Sequential**: Go through images one by one in alphabetical order (controlled by index)
+  - **Sequential**: Go through images one by one in alphabetical order (using seed as an index)
 - Automatically load associated text files (with the same name but .txt extension)
 - Option to search recursively through subfolders
 
@@ -21,9 +21,12 @@ This node provides an easy way to load images from a folder along with their cor
 
 - **folder_path**: Path to the folder containing your images
 - **selection_method**: Choose between "random" or "sequential" modes
-- **seed**: Seed value for random selection (only used in random mode)
-- **index**: Index value for sequential selection (only used in sequential mode)
-  - Set "control_after_generate" to "increment" in workflow settings for this parameter to automatically go through images sequentially
+- **seed**: 
+  - In random mode: Used as a random seed to select images
+  - In sequential mode: Used as an index to select images in order
+  - Right-click on seed and set "control_after_generate" to:
+    - "increment" for sequential access (goes to next image)
+    - "randomize" for random access (selects random images)
 - **recursive_search**: Whether to search in subfolders
 - **load_text_file**: Whether to load the corresponding text file with the same name
 
@@ -37,7 +40,9 @@ This node provides an easy way to load images from a folder along with their cor
 1. Add the "Folder Image Selector" node to your workflow
 2. Set the folder path to your images
 3. Configure the selection mode and other parameters
-4. For sequential mode, right-click on the index input and set "control_after_generate" to "increment"
+4. Set seed control method:
+   - For sequential mode: Right-click on the seed input and set "control_after_generate" to "increment"
+   - For random mode: Right-click on the seed input and set "control_after_generate" to "randomize"
 5. Connect the outputs to use in your workflow
 
 ## Text Files

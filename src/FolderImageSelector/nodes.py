@@ -38,13 +38,6 @@ class FolderImageSelector:
                     "step": 1,
                     "display": "number"
                 }),
-                "index": ("INT", {
-                    "default": 0,
-                    "min": 0,
-                    "max": 99999999,
-                    "step": 1,
-                    "display": "number"
-                }),
                 "recursive_search": (["True", "False"],),
                 "load_text_file": (["True", "False"],),
             },
@@ -89,7 +82,7 @@ class FolderImageSelector:
         
         return image_paths
 
-    def select_image(self, folder_path, selection_method, seed, index, recursive_search, load_text_file, unique_id=None):
+    def select_image(self, folder_path, selection_method, seed, recursive_search, load_text_file, unique_id=None):
         # Always try to get image paths
         current_image_paths = self.get_image_paths(folder_path, recursive_search)
         
@@ -114,9 +107,9 @@ class FolderImageSelector:
             random.seed(seed)
             selected_path = random.choice(self.image_paths)
         else:  # sequential
-            # Use index parameter for sequential selection
-            # This will be properly incremented by ComfyUI's control_after_generate
-            image_index = index % len(self.image_paths)
+            # Use seed as index for sequential selection
+            # This will be properly incremented by ComfyUI's control_after_generate for seed
+            image_index = seed % len(self.image_paths)
             selected_path = self.image_paths[image_index]
         
         # Load and convert the image to ComfyUI format
@@ -136,22 +129,19 @@ class FolderImageSelector:
                     print(f"Error reading text file {txt_path}: {e}")
                     text_content = ""
         
-        current_image_index = index % len(self.image_paths) if selection_method == "sequential" else "random"
+        current_image_index = seed % len(self.image_paths) if selection_method == "sequential" else "random"
         print(f"Selected image: {selected_path}")
-        print(f"Current index: {current_image_index}")
+        print(f"Current index/seed: {seed}")
+        print(f"Selection mode: {selection_method}")
         print(f"Text content: {text_content[:50]}..." if len(text_content) > 50 else f"Text content: {text_content}")
         
         return (img_tensor, text_content)
     
     @classmethod
-    def IS_CHANGED(s, folder_path, selection_method, seed, index, recursive_search, load_text_file, unique_id=None):
+    def IS_CHANGED(s, folder_path, selection_method, seed, recursive_search, load_text_file, unique_id=None):
         # Unique identifier to control re-execution
-        if selection_method == "random":
-            # For random mode, seed determines the selected image
-            return f"{folder_path}_{recursive_search}_{seed}"
-        else:  # sequential mode
-            # For sequential mode, index determines the selected image
-            return f"{folder_path}_{recursive_search}_{index}"
+        # For both random and sequential modes, seed determines the selected image
+        return f"{folder_path}_{recursive_search}_{selection_method}_{seed}"
 
 
 # Register the node
