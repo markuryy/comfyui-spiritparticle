@@ -10,7 +10,7 @@ class RandomCheckpointLoader:
     @classmethod
     def INPUT_TYPES(s):
         # Get checkpoint folder paths
-        checkpoint_paths = folder_paths.get_folder_names_and_paths("checkpoints")[0]
+        checkpoint_paths = folder_paths.get_folder_paths("checkpoints")
         
         # Find all subfolders in checkpoint directories
         subfolders = set()
@@ -42,7 +42,7 @@ class RandomCheckpointLoader:
 
     def get_checkpoint_files_in_subfolder(self, subfolder_name):
         """Get all checkpoint files from the specified subfolder"""
-        checkpoint_paths = folder_paths.get_folder_names_and_paths("checkpoints")[0]
+        checkpoint_paths = folder_paths.get_folder_paths("checkpoints")
         checkpoint_files = []
         
         for checkpoint_path in checkpoint_paths:
@@ -95,7 +95,7 @@ class RandomLoRALoader:
     @classmethod
     def INPUT_TYPES(s):
         # Get LoRA folder paths
-        lora_paths = folder_paths.get_folder_names_and_paths("loras")[0]
+        lora_paths = folder_paths.get_folder_paths("loras")
         
         # Find all subfolders in LoRA directories
         subfolders = set()
@@ -141,7 +141,7 @@ class RandomLoRALoader:
 
     def get_lora_files_in_subfolder(self, subfolder_name):
         """Get all LoRA files from the specified subfolder"""
-        lora_paths = folder_paths.get_folder_names_and_paths("loras")[0]
+        lora_paths = folder_paths.get_folder_paths("loras")
         lora_files = []
         
         for lora_path in lora_paths:
