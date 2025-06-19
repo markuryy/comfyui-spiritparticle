@@ -36,7 +36,8 @@ class RandomCheckpointLoader:
             }
         }
 
-    RETURN_TYPES = ("MODEL", "CLIP", "VAE")
+    RETURN_TYPES = ("MODEL", "CLIP", "VAE", "STRING")
+    RETURN_NAMES = ("model", "clip", "vae", "selected_checkpoint")
     FUNCTION = "load_random_checkpoint"
     CATEGORY = "loaders"
 
@@ -81,7 +82,7 @@ class RandomCheckpointLoader:
         checkpoint_loader = CheckpointLoaderSimple()
         model, clip, vae = checkpoint_loader.load_checkpoint(selected_checkpoint)
         
-        return (model, clip, vae)
+        return (model, clip, vae, selected_checkpoint)
     
     @classmethod
     def IS_CHANGED(s, subfolder, seed):
@@ -135,7 +136,8 @@ class RandomLoRALoader:
             }
         }
 
-    RETURN_TYPES = ("MODEL", "CLIP")
+    RETURN_TYPES = ("MODEL", "CLIP", "STRING")
+    RETURN_NAMES = ("model", "clip", "selected_lora")
     FUNCTION = "load_random_lora"
     CATEGORY = "loaders"
 
@@ -180,7 +182,7 @@ class RandomLoRALoader:
         lora_loader = LoraLoader()
         model_out, clip_out = lora_loader.load_lora(model, clip, selected_lora, strength_model, strength_clip)
         
-        return (model_out, clip_out)
+        return (model_out, clip_out, selected_lora)
     
     @classmethod
     def IS_CHANGED(s, model, clip, subfolder, strength_model, strength_clip, seed):
