@@ -50,3 +50,87 @@ Text files should have the same name as the image but with a .txt extension.
 Example:
 - `image001.png` and `image001.txt`
 - `folder/landscape.jpg` and `folder/landscape.txt`
+
+## Random Model Loaders
+
+Two nodes for randomly selecting models and LoRAs from organized subfolders.
+
+https://github.com/user-attachments/assets/42f427e6-f111-4d77-aa25-826f9cc0c110
+
+### Random Checkpoint Loader
+
+Randomly selects a checkpoint from a specified subfolder within your checkpoints directory.
+
+#### Features
+- Scans checkpoint folder for subfolders (e.g., SDXL, Pony, SD1.5)
+- Presents subfolder names as dropdown options
+- Randomly selects a checkpoint from the chosen subfolder using seed
+- Uses ComfyUI's native checkpoint loader internally
+- Returns the selected checkpoint filename as a string output
+
+#### Parameters
+- **subfolder**: Dropdown list of available subfolders in your checkpoints directory
+- **seed**: Seed value for reproducible random selection
+
+#### Outputs
+- **model**: The loaded model
+- **clip**: The loaded CLIP model
+- **vae**: The loaded VAE
+- **selected_checkpoint**: String showing which checkpoint file was selected
+
+### Random LoRA Loader
+
+Randomly selects a LoRA from a specified subfolder within your LoRAs directory.
+
+#### Features
+- Scans LoRA folder for arbitrary subfolders (e.g., Characters, Styles, Concepts)
+- Presents subfolder names as dropdown options
+- Randomly selects a LoRA from the chosen subfolder using seed
+- Includes standard LoRA strength controls
+- Uses ComfyUI's native LoRA loader internally
+- Returns the selected LoRA filename as a string output
+
+#### Parameters
+- **model**: Input model to apply LoRA to
+- **clip**: Input CLIP model to apply LoRA to
+- **subfolder**: Dropdown list of available subfolders in your LoRAs directory
+- **strength_model**: LoRA strength for the model (default: 1.0)
+- **strength_clip**: LoRA strength for CLIP (default: 1.0)
+- **seed**: Seed value for reproducible random selection
+
+#### Outputs
+- **model**: The model with LoRA applied
+- **clip**: The CLIP model with LoRA applied
+- **selected_lora**: String showing which LoRA file was selected
+
+### Organization Tips
+
+To use these nodes effectively, organize your models into subfolders:
+
+**Example Checkpoints folder structure:**
+```
+models/checkpoints/
+├── SDXL/
+│   ├── model1.safetensors
+│   └── model2.safetensors
+├── Pony/
+│   ├── pony_model1.safetensors
+│   └── pony_model2.safetensors
+└── SD1.5/
+    ├── realistic_model.ckpt
+    └── anime_model.safetensors
+```
+
+**Example LoRAs folder structure:**
+```
+models/loras/
+├── SDXL/
+│   ├── character1.safetensors
+│   └── character2.safetensors
+├── Styles/
+│   ├── oil_painting.safetensors
+│   └── watercolor.safetensors
+└── Concepts/
+    ├── concept1.safetensors
+    └── concept2.safetensors
+```
