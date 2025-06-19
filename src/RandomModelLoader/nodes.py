@@ -1,7 +1,124 @@
 import os
 import random
+import hashlib
+import json
+import requests
 import folder_paths
 from nodes import CheckpointLoaderSimple, LoraLoader
+
+try:
+    from safetensors import safe_open
+except ImportError:
+    safe_open = None
+
+# METADATA FETCHING FUNCTIONS
+
+def calculate_sha256(file_path):
+    """Calculate SHA256 hash of a file"""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(chunk)
+    return sha256_hash.hexdigest()
+
+def get_model_version_info(hash_value):
+    """Get model info from CivitAI API using file hash"""
+    try:
+        api_url = f"https://civitai.com/api/v1/model-versions/by-hash/{hash_value}"
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {}
+    except Exception as e:
+        print(f"Error fetching model info from CivitAI: {e}")
+        return {}
+
+def parse_local_safetensors_metadata(lora_path):
+    """Extract metadata directly from safetensors file"""
+    if not safe_open:
+        return {}
+    try:
+        with safe_open(lora_path, framework="pt", device="cpu") as f:
+            meta = f.metadata() or {}
+            print(f"DEBUG: Safetensors metadata for {lora_path} -> {meta}")
+            return meta
+    except Exception as e:
+        print(f"Failed reading local safetensors metadata for {lora_path}: {e}")
+        return {}
+
+def extract_trigger_words_from_metadata(meta):
+    """Extract trigger words from various metadata formats"""
+    triggers_found = set()
+
+    if "trainedWords" in meta and meta["trainedWords"]:
+        val = meta["trainedWords"]
+        if isinstance(val, str):
+            triggers_found.update(x.strip() for x in val.split(",") if x.strip())
+        elif isinstance(val, list):
+            triggers_found.update(val)
+        elif isinstance(val, dict):
+            triggers_found.update(val.keys())
+
+    if "modelspec.trigger_phrase" in meta:
+        trigger_phrase = meta["modelspec.trigger_phrase"]
+        if isinstance(trigger_phrase, str) and trigger_phrase.strip():
+            triggers_found.add(trigger_phrase.strip())
+
+    return list(triggers_found)
+
+def get_lora_metadata(lora_name):
+    """Get LoRA metadata with caching, trying local first then API fallback"""
+    db_path = os.path.join(os.path.dirname(__file__), 'lora_metadata_db.json')
+    
+    # Load existing cache
+    try:
+        with open(db_path, 'r') as f:
+            db = json.load(f)
+    except Exception:
+        db = {}
+    
+    # Return cached result if available
+    if lora_name in db:
+        return db[lora_name]
+    
+    # Get full path to LoRA file
+    lora_path = folder_paths.get_full_path("loras", lora_name)
+    if not os.path.exists(lora_path):
+        db[lora_name] = {"triggerWords": ""}
+        try:
+            with open(db_path, 'w') as f:
+                json.dump(db, f, indent=4)
+        except Exception as e:
+            print(f"Error saving metadata cache: {e}")
+        return db[lora_name]
+    
+    # Try local metadata first
+    meta = parse_local_safetensors_metadata(lora_path)
+    local_triggers = extract_trigger_words_from_metadata(meta)
+    
+    # If no local triggers found, try CivitAI API
+    if not local_triggers:
+        try:
+            LORAsha256 = calculate_sha256(lora_path)
+            model_info = get_model_version_info(LORAsha256)
+            if model_info.get("trainedWords"):
+                local_triggers = model_info["trainedWords"]
+        except Exception as e:
+            print(f"Error fetching from CivitAI API: {e}")
+    
+    # Format trigger words as comma-separated string
+    triggers_str = ", ".join(local_triggers) if local_triggers else ""
+    
+    # Cache the result
+    db[lora_name] = {"triggerWords": triggers_str}
+    try:
+        with open(db_path, 'w') as f:
+            json.dump(db, f, indent=4)
+    except Exception as e:
+        print(f"Error saving metadata cache: {e}")
+    
+    return db[lora_name]
 
 class RandomCheckpointLoader:
     def __init__(self):
@@ -136,8 +253,8 @@ class RandomLoRALoader:
             }
         }
 
-    RETURN_TYPES = ("MODEL", "CLIP", "STRING")
-    RETURN_NAMES = ("model", "clip", "selected_lora")
+    RETURN_TYPES = ("MODEL", "CLIP", "STRING", "STRING")
+    RETURN_NAMES = ("model", "clip", "selected_lora", "trigger_words")
     FUNCTION = "load_random_lora"
     CATEGORY = "loaders"
 
@@ -182,7 +299,16 @@ class RandomLoRALoader:
         lora_loader = LoraLoader()
         model_out, clip_out = lora_loader.load_lora(model, clip, selected_lora, strength_model, strength_clip)
         
-        return (model_out, clip_out, selected_lora)
+        # Extract trigger words from the selected LoRA
+        trigger_words = ""
+        try:
+            metadata = get_lora_metadata(selected_lora)
+            trigger_words = metadata.get("triggerWords", "")
+        except Exception as e:
+            print(f"Error extracting trigger words for {selected_lora}: {e}")
+            trigger_words = ""
+        
+        return (model_out, clip_out, selected_lora, trigger_words)
     
     @classmethod
     def IS_CHANGED(s, model, clip, subfolder, strength_model, strength_clip, seed):
