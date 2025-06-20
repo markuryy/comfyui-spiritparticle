@@ -99,7 +99,22 @@ class FolderImageSelector:
             if os.path.exists(txt_path):
                 try:
                     with open(txt_path, 'r', encoding='utf-8') as f:
-                        text_content = f.read().strip()
+                        file_content = f.read().strip()
+                        
+                    # Check if file contains multiple captions separated by ---
+                    if "---" in file_content:
+                        # Split by delimiter and select one randomly using the same seed
+                        captions = file_content.split("---")
+                        # Strip whitespace from each caption (but keep empty ones as empty strings)
+                        captions = [caption.strip() for caption in captions]
+                        # Use seed to select caption (same logic as image selection)
+                        caption_index = seed % len(captions)
+                        text_content = captions[caption_index]
+                        print(f"Multiple captions found: {len(captions)} captions, selected index {caption_index}")
+                    else:
+                        # No delimiter found, use entire content (backward compatibility)
+                        text_content = file_content
+                        
                 except Exception as e:
                     print(f"Error reading text file {txt_path}: {e}")
                     text_content = ""

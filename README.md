@@ -51,6 +51,10 @@ Example:
 - `image001.png` and `image001.txt`
 - `folder/landscape.jpg` and `folder/landscape.txt`
 
+### Multiple Captions Support
+
+Text files can contain multiple captions separated by `---` delimiters. When multiple captions are present, one will be randomly selected using the same seed that selects the image.
+
 ## Random Model Loaders
 
 Two nodes for randomly selecting models and LoRAs from organized subfolders.
