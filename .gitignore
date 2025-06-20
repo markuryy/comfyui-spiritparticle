@@ -98,3 +98,6 @@ cookiecutter-pypackage-env/
 # vscode settings
 .history/
 *.code-workspace
+
+
+src/RandomModelLoader/lora_metadata_db.json
