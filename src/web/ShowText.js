@@ -7,28 +7,26 @@ app.registerExtension({
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     if (nodeData.name === "ShowText") {
       function populate(text) {
-        if (this.widgets) {
-          for (let i = 1; i < this.widgets.length; i++) {
-            this.widgets[i].onRemove?.();
-          }
-          this.widgets.length = 1;
-        }
-
         const v = [...text];
         if (!v[0]) {
           v.shift();
         }
-        for (const list of v) {
-          const w = ComfyWidgets["STRING"](
+        
+        // Find existing display widget or create one
+        let displayWidget = this.widgets?.find(w => w.name === "text2");
+        if (!displayWidget) {
+          displayWidget = ComfyWidgets["STRING"](
             this,
             "text2",
             ["STRING", { multiline: true }],
             app
           ).widget;
-          w.inputEl.readOnly = true;
-          w.inputEl.style.opacity = 0.6;
-          w.value = list;
+          displayWidget.inputEl.readOnly = true;
+          displayWidget.inputEl.style.opacity = 0.6;
         }
+        
+        // Update the widget value with the first text item
+        displayWidget.value = v[0] || "";
 
         requestAnimationFrame(() => {
           const sz = this.computeSize();
