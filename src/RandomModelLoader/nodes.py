@@ -67,7 +67,7 @@ def extract_trigger_words_from_metadata(meta):
 
     return list(triggers_found)
 
-def get_trigger_from_txt_file(lora_path):
+def get_trigger_from_txt_file(lora_path, seed=0):
     """Get trigger words from txt file with same name as LoRA file"""
     try:
         # Get the base name without extension and construct txt file path
@@ -76,16 +76,31 @@ def get_trigger_from_txt_file(lora_path):
         
         if os.path.exists(txt_path):
             with open(txt_path, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
-                if content:
-                    print(f"DEBUG: Found trigger words in txt file {txt_path}: {content}")
-                    return content
+                file_content = f.read().strip()
+                
+            if file_content:
+                # Check if file contains multiple trigger word sets separated by ---
+                if "---" in file_content:
+                    # Split by delimiter and select one randomly using the same seed
+                    sections = file_content.split("---")
+                    # Strip whitespace from each section (but keep empty ones as empty strings)
+                    sections = [section.strip() for section in sections]
+                    # Use seed to select section (same logic as LoRA selection)
+                    section_index = seed % len(sections)
+                    selected_content = sections[section_index]
+                    print(f"DEBUG: Multiple trigger word sets found in {txt_path}: {len(sections)} sections, selected index {section_index}")
+                    print(f"DEBUG: Selected trigger words: {selected_content}")
+                    return selected_content
+                else:
+                    # No delimiter found, use entire content (backward compatibility)
+                    print(f"DEBUG: Found trigger words in txt file {txt_path}: {file_content}")
+                    return file_content
         return ""
     except Exception as e:
         print(f"Error reading txt file for {lora_path}: {e}")
         return ""
 
-def get_lora_metadata(lora_name):
+def get_lora_metadata(lora_name, seed=0):
     """Get LoRA metadata with caching, priority: txt file > CivitAI > safetensors metadata > none"""
     db_path = os.path.join(os.path.dirname(__file__), 'lora_metadata_db.json')
     
@@ -96,25 +111,55 @@ def get_lora_metadata(lora_name):
     except Exception:
         db = {}
     
-    # Return cached result if available
-    if lora_name in db:
-        return db[lora_name]
+    # Create cache key that includes seed for txt file based triggers
+    cache_key = f"{lora_name}_seed_{seed}"
     
     # Get full path to LoRA file
     lora_path = folder_paths.get_full_path("loras", lora_name)
     if not os.path.exists(lora_path):
-        db[lora_name] = {"triggerWords": ""}
+        result = {"triggerWords": ""}
+        db[cache_key] = result
         try:
             with open(db_path, 'w') as f:
                 json.dump(db, f, indent=4)
         except Exception as e:
             print(f"Error saving metadata cache: {e}")
-        return db[lora_name]
+        return result
+    
+    # Check if we have txt file first to determine caching strategy
+    base_name = os.path.splitext(lora_path)[0]
+    txt_path = base_name + ".txt"
+    has_txt_file = os.path.exists(txt_path)
+    
+    # For txt files with delimiters, we need seed-specific caching
+    # For other sources, we can use general caching
+    if has_txt_file:
+        try:
+            with open(txt_path, 'r', encoding='utf-8') as f:
+                file_content = f.read().strip()
+            has_delimiters = "---" in file_content
+        except:
+            has_delimiters = False
+        
+        if has_delimiters:
+            # Use seed-specific cache key for delimited txt files
+            if cache_key in db:
+                return db[cache_key]
+        else:
+            # Use general cache key for non-delimited txt files
+            general_key = f"{lora_name}_general"
+            if general_key in db:
+                return db[general_key]
+    else:
+        # Use general cache key for non-txt sources
+        general_key = f"{lora_name}_general"
+        if general_key in db:
+            return db[general_key]
     
     triggers_str = ""
     
     # Priority 1: Try txt file first (highest priority)
-    txt_triggers = get_trigger_from_txt_file(lora_path)
+    txt_triggers = get_trigger_from_txt_file(lora_path, seed)
     if txt_triggers:
         triggers_str = txt_triggers
     else:
@@ -137,15 +182,21 @@ def get_lora_metadata(lora_name):
             local_triggers = extract_trigger_words_from_metadata(meta)
             triggers_str = ", ".join(local_triggers) if local_triggers else ""
     
-    # Cache the result
-    db[lora_name] = {"triggerWords": triggers_str}
+    # Cache the result with appropriate key
+    result = {"triggerWords": triggers_str}
+    if has_txt_file and has_delimiters:
+        db[cache_key] = result  # Seed-specific cache
+    else:
+        general_key = f"{lora_name}_general"
+        db[general_key] = result  # General cache
+    
     try:
         with open(db_path, 'w') as f:
             json.dump(db, f, indent=4)
     except Exception as e:
         print(f"Error saving metadata cache: {e}")
     
-    return db[lora_name]
+    return result
 
 class RandomCheckpointLoader:
     def __init__(self):
@@ -326,10 +377,10 @@ class RandomLoRALoader:
         lora_loader = LoraLoader()
         model_out, clip_out = lora_loader.load_lora(model, clip, selected_lora, strength_model, strength_clip)
         
-        # Extract trigger words from the selected LoRA
+        # Extract trigger words from the selected LoRA using the same seed
         trigger_words = ""
         try:
-            metadata = get_lora_metadata(selected_lora)
+            metadata = get_lora_metadata(selected_lora, seed)
             trigger_words = metadata.get("triggerWords", "")
         except Exception as e:
             print(f"Error extracting trigger words for {selected_lora}: {e}")

@@ -97,6 +97,7 @@ Randomly selects a LoRA from a specified subfolder within your LoRAs directory.
   1. **Txt files** (highest priority) - looks for `.txt` files with same name as LoRA
   2. **CivitAI API** - fetches trigger words from CivitAI database
   3. **Safetensors metadata** - reads embedded metadata from the file
+- **Multiple trigger word sets** - LoRA `.txt` files can contain multiple trigger word sets separated by `---` delimiters, with one randomly selected using the same seed as LoRA selection
 
 #### Parameters
 - **model**: Input model to apply LoRA to
