@@ -32,6 +32,9 @@ class ImageBlender:
                     "step": 0.01,
                     "display": "slider"
                 }),
+            },
+            "optional": {
+                "mask": ("MASK",),
             }
         }
 
@@ -40,7 +43,7 @@ class ImageBlender:
     FUNCTION = "blend_images"
     CATEGORY = "Image Processing"
 
-    def blend_images(self, base_image, overlay_image, blend_mode, strength):
+    def blend_images(self, base_image, overlay_image, blend_mode, strength, mask=None):
         # Convert ComfyUI tensors to PIL Images
         base_pil = self.tensor_to_pil(base_image)
         overlay_pil = self.tensor_to_pil(overlay_image)
@@ -56,6 +59,10 @@ class ImageBlender:
         if strength < 1.0:
             blended_pil = Image.blend(base_pil, blended_pil, strength)
         
+        # Apply mask if provided
+        if mask is not None:
+            blended_pil = self.apply_mask(base_pil, blended_pil, mask)
+        
         # Convert back to ComfyUI tensor format
         result_tensor = self.pil_to_tensor(blended_pil)
         
@@ -63,20 +70,32 @@ class ImageBlender:
 
     def tensor_to_pil(self, tensor):
         """Convert ComfyUI tensor to PIL Image"""
-        # ComfyUI tensors are in format [batch, height, width, channels]
+        # Handle different tensor shapes
         if len(tensor.shape) == 4:
-            tensor = tensor[0]  # Take first image from batch
+            # [batch, height, width, channels] - take first image from batch
+            tensor = tensor[0]
+        elif len(tensor.shape) == 2:
+            # [height, width] - grayscale without channel dimension
+            tensor = tensor.unsqueeze(-1)  # Add channel dimension
+        elif len(tensor.shape) != 3:
+            raise ValueError(f"Unsupported tensor shape: {tensor.shape}. Expected 2D, 3D, or 4D tensor.")
         
         # Convert from [0,1] float to [0,255] uint8
         array = (tensor.cpu().numpy() * 255).astype(np.uint8)
         
-        # Convert to PIL Image
-        if array.shape[2] == 3:  # RGB
-            return Image.fromarray(array, 'RGB')
-        elif array.shape[2] == 4:  # RGBA
-            return Image.fromarray(array, 'RGBA')
-        else:  # Grayscale
-            return Image.fromarray(array[:,:,0], 'L')
+        # Convert to PIL Image based on number of channels
+        if len(array.shape) == 3:
+            if array.shape[2] == 3:  # RGB
+                return Image.fromarray(array, 'RGB')
+            elif array.shape[2] == 4:  # RGBA
+                return Image.fromarray(array, 'RGBA')
+            elif array.shape[2] == 1:  # Grayscale with channel dimension
+                return Image.fromarray(array[:,:,0], 'L')
+            else:
+                raise ValueError(f"Unsupported number of channels: {array.shape[2]}. Expected 1, 3, or 4 channels.")
+        else:
+            # Should not reach here due to earlier checks, but handle gracefully
+            return Image.fromarray(array, 'L')
 
     def pil_to_tensor(self, pil_image):
         """Convert PIL Image to ComfyUI tensor format"""
@@ -91,6 +110,46 @@ class ImageBlender:
         tensor = torch.from_numpy(array).unsqueeze(0)
         
         return tensor
+
+    def mask_to_pil(self, mask_tensor):
+        """Convert ComfyUI mask tensor to PIL Image"""
+        # ComfyUI mask tensors are in format [batch, height, width] or [height, width]
+        if len(mask_tensor.shape) == 3:
+            mask_tensor = mask_tensor[0]  # Take first mask from batch
+        elif len(mask_tensor.shape) != 2:
+            raise ValueError(f"Unsupported mask tensor shape: {mask_tensor.shape}. Expected 2D or 3D tensor.")
+        
+        # Convert from [0,1] float to [0,255] uint8
+        mask_array = (mask_tensor.cpu().numpy() * 255).astype(np.uint8)
+        
+        # Convert to PIL Image (grayscale)
+        return Image.fromarray(mask_array, 'L')
+
+    def apply_mask(self, base_image, blended_image, mask):
+        """Apply mask to blend between base and blended images"""
+        # Convert mask tensor to PIL Image
+        mask_pil = self.mask_to_pil(mask)
+        
+        # Resize mask to match image dimensions if needed
+        if mask_pil.size != base_image.size:
+            mask_pil = mask_pil.resize(base_image.size, Image.LANCZOS)
+        
+        # Convert images to numpy arrays for processing
+        base_array = np.array(base_image).astype(np.float32) / 255.0
+        blended_array = np.array(blended_image).astype(np.float32) / 255.0
+        mask_array = np.array(mask_pil).astype(np.float32) / 255.0
+        
+        # Expand mask to match image channels (RGB)
+        if len(base_array.shape) == 3 and base_array.shape[2] == 3:
+            mask_array = np.stack([mask_array, mask_array, mask_array], axis=-1)
+        
+        # Apply mask: result = base * (1 - mask) + blended * mask
+        # Where mask = 0 (black) shows base image, mask = 1 (white) shows blended image
+        result_array = base_array * (1.0 - mask_array) + blended_array * mask_array
+        
+        # Convert back to PIL Image
+        result_array = np.clip(result_array * 255.0, 0, 255).astype(np.uint8)
+        return Image.fromarray(result_array, 'RGB')
 
     def apply_blend_mode(self, base, overlay, mode):
         """Apply the specified blend mode to two PIL images"""

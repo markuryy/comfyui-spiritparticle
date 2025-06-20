@@ -51,20 +51,32 @@ class HighPassFilter:
 
     def tensor_to_pil(self, tensor):
         """Convert ComfyUI tensor to PIL Image"""
-        # ComfyUI tensors are in format [batch, height, width, channels]
+        # Handle different tensor shapes
         if len(tensor.shape) == 4:
-            tensor = tensor[0]  # Take first image from batch
+            # [batch, height, width, channels] - take first image from batch
+            tensor = tensor[0]
+        elif len(tensor.shape) == 2:
+            # [height, width] - grayscale without channel dimension
+            tensor = tensor.unsqueeze(-1)  # Add channel dimension
+        elif len(tensor.shape) != 3:
+            raise ValueError(f"Unsupported tensor shape: {tensor.shape}. Expected 2D, 3D, or 4D tensor.")
         
         # Convert from [0,1] float to [0,255] uint8
         array = (tensor.cpu().numpy() * 255).astype(np.uint8)
         
-        # Convert to PIL Image
-        if array.shape[2] == 3:  # RGB
-            return Image.fromarray(array, 'RGB')
-        elif array.shape[2] == 4:  # RGBA
-            return Image.fromarray(array, 'RGBA')
-        else:  # Grayscale
-            return Image.fromarray(array[:,:,0], 'L')
+        # Convert to PIL Image based on number of channels
+        if len(array.shape) == 3:
+            if array.shape[2] == 3:  # RGB
+                return Image.fromarray(array, 'RGB')
+            elif array.shape[2] == 4:  # RGBA
+                return Image.fromarray(array, 'RGBA')
+            elif array.shape[2] == 1:  # Grayscale with channel dimension
+                return Image.fromarray(array[:,:,0], 'L')
+            else:
+                raise ValueError(f"Unsupported number of channels: {array.shape[2]}. Expected 1, 3, or 4 channels.")
+        else:
+            # Should not reach here due to earlier checks, but handle gracefully
+            return Image.fromarray(array, 'L')
 
     def pil_to_tensor(self, pil_image):
         """Convert PIL Image to ComfyUI tensor format"""
@@ -112,19 +124,6 @@ class HighPassFilter:
         result_array = high_pass.astype(np.uint8)
         return Image.fromarray(result_array, 'RGB')
 
-    def gaussian_blur_numpy(self, image, sigma):
-        """
-        Alternative implementation using numpy-only Gaussian blur
-        (in case cv2 is not available)
-        """
-        from scipy.ndimage import gaussian_filter
-        
-        # Apply Gaussian filter to each channel
-        blurred = np.zeros_like(image)
-        for i in range(image.shape[2]):
-            blurred[:,:,i] = gaussian_filter(image[:,:,i], sigma=sigma)
-        
-        return blurred
 
     def desaturate_image(self, image):
         """
@@ -150,40 +149,6 @@ class HighPassFilter:
         grayscale_array = np.clip(grayscale_array, 0, 255).astype(np.uint8)
         return Image.fromarray(grayscale_array, 'RGB')
 
-    def create_gaussian_kernel(self, size, sigma):
-        """
-        Create a Gaussian kernel for manual convolution
-        (fallback if neither cv2 nor scipy is available)
-        """
-        kernel = np.zeros((size, size))
-        center = size // 2
-        
-        for i in range(size):
-            for j in range(size):
-                x, y = i - center, j - center
-                kernel[i, j] = np.exp(-(x*x + y*y) / (2 * sigma * sigma))
-        
-        return kernel / np.sum(kernel)
-
-    def manual_gaussian_blur(self, image, radius):
-        """
-        Manual implementation of Gaussian blur using convolution
-        (pure numpy fallback)
-        """
-        sigma = radius / 3.0
-        kernel_size = int(2 * np.ceil(3 * sigma) + 1)
-        if kernel_size % 2 == 0:
-            kernel_size += 1
-        
-        kernel = self.create_gaussian_kernel(kernel_size, sigma)
-        
-        # Apply convolution to each channel
-        from scipy import ndimage
-        blurred = np.zeros_like(image)
-        for i in range(image.shape[2]):
-            blurred[:,:,i] = ndimage.convolve(image[:,:,i], kernel, mode='reflect')
-        
-        return blurred
 
 
 # Register the node
