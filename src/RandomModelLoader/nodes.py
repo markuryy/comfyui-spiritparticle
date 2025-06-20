@@ -150,7 +150,11 @@ class RandomCheckpointLoader:
                     "step": 1,
                     "display": "number"
                 }),
-            }
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+            },
         }
 
     RETURN_TYPES = ("MODEL", "CLIP", "VAE", "STRING")
@@ -179,7 +183,7 @@ class RandomCheckpointLoader:
         
         return checkpoint_files
 
-    def load_random_checkpoint(self, subfolder, seed):
+    def load_random_checkpoint(self, subfolder, seed, unique_id=None, extra_pnginfo=None):
         if subfolder == "No subfolders found":
             raise ValueError("No subfolders found in checkpoints directory")
         
@@ -199,7 +203,25 @@ class RandomCheckpointLoader:
         checkpoint_loader = CheckpointLoaderSimple()
         model, clip, vae = checkpoint_loader.load_checkpoint(selected_checkpoint)
         
-        return (model, clip, vae, selected_checkpoint)
+        # Update workflow with selected checkpoint for UI display
+        if unique_id is not None and extra_pnginfo is not None:
+            if not isinstance(extra_pnginfo, list):
+                print("Error: extra_pnginfo is not a list")
+            elif (
+                not isinstance(extra_pnginfo[0], dict)
+                or "workflow" not in extra_pnginfo[0]
+            ):
+                print("Error: extra_pnginfo[0] is not a dict or missing 'workflow' key")
+            else:
+                workflow = extra_pnginfo[0]["workflow"]
+                node = next(
+                    (x for x in workflow["nodes"] if str(x["id"]) == str(unique_id[0])),
+                    None,
+                )
+                if node:
+                    node["widgets_values"] = [subfolder, seed, selected_checkpoint]
+        
+        return {"ui": {"selected_checkpoint": [selected_checkpoint]}, "result": (model, clip, vae, selected_checkpoint)}
     
     @classmethod
     def IS_CHANGED(s, subfolder, seed):
@@ -250,7 +272,11 @@ class RandomLoRALoader:
                     "step": 1,
                     "display": "number"
                 }),
-            }
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+            },
         }
 
     RETURN_TYPES = ("MODEL", "CLIP", "STRING", "STRING")
@@ -279,7 +305,7 @@ class RandomLoRALoader:
         
         return lora_files
 
-    def load_random_lora(self, model, clip, subfolder, strength_model, strength_clip, seed):
+    def load_random_lora(self, model, clip, subfolder, strength_model, strength_clip, seed, unique_id=None, extra_pnginfo=None):
         if subfolder == "No subfolders found":
             raise ValueError("No subfolders found in loras directory")
         
@@ -308,7 +334,25 @@ class RandomLoRALoader:
             print(f"Error extracting trigger words for {selected_lora}: {e}")
             trigger_words = ""
         
-        return (model_out, clip_out, selected_lora, trigger_words)
+        # Update workflow with selected LoRA and trigger words for UI display
+        if unique_id is not None and extra_pnginfo is not None:
+            if not isinstance(extra_pnginfo, list):
+                print("Error: extra_pnginfo is not a list")
+            elif (
+                not isinstance(extra_pnginfo[0], dict)
+                or "workflow" not in extra_pnginfo[0]
+            ):
+                print("Error: extra_pnginfo[0] is not a dict or missing 'workflow' key")
+            else:
+                workflow = extra_pnginfo[0]["workflow"]
+                node = next(
+                    (x for x in workflow["nodes"] if str(x["id"]) == str(unique_id[0])),
+                    None,
+                )
+                if node:
+                    node["widgets_values"] = [subfolder, strength_model, strength_clip, seed, selected_lora, trigger_words]
+        
+        return {"ui": {"selected_lora": [selected_lora], "trigger_words": [trigger_words]}, "result": (model_out, clip_out, selected_lora, trigger_words)}
     
     @classmethod
     def IS_CHANGED(s, model, clip, subfolder, strength_model, strength_clip, seed):

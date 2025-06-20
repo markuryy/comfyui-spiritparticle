@@ -25,3 +25,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **FOLDER_IMAGE_DISPLAY_MAPPINGS,
     **RANDOM_LOADER_DISPLAY_MAPPINGS
 }
+
+# Register web directory for frontend assets
+WEB_DIRECTORY = "./web"
