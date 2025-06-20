@@ -219,7 +219,8 @@ class RandomCheckpointLoader:
                     None,
                 )
                 if node:
-                    node["widgets_values"] = [[selected_checkpoint]]
+                    # Store: [subfolder, seed, selected_checkpoint] to match 3 total widgets
+                    node["widgets_values"] = [subfolder, seed, selected_checkpoint]
         
         return {"ui": {"text": [selected_checkpoint]}, "result": (model, clip, vae, selected_checkpoint)}
     
@@ -355,7 +356,8 @@ class RandomLoRALoader:
                     None,
                 )
                 if node:
-                    node["widgets_values"] = [display_text]
+                    # Store: [subfolder, strength_model, strength_clip, seed, display_text] to match 5 total widgets
+                    node["widgets_values"] = [subfolder, strength_model, strength_clip, seed, display_text]
         
         return {"ui": {"text": display_text}, "result": (model_out, clip_out, selected_lora, trigger_words)}
     

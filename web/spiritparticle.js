@@ -6,28 +6,28 @@ app.registerExtension({
   name: "SpiritParticle.ModelDisplay",
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     if (nodeData.name === "RandomCheckpointLoader") {
-      function populate(text) {
+      function populateCheckpoint(selectedCheckpoint) {
         if (this.widgets) {
-          for (let i = 1; i < this.widgets.length; i++) {
+          // Remove existing display widgets (preserve input widgets: subfolder, seed)
+          const originalWidgetCount = 2;
+          for (let i = originalWidgetCount; i < this.widgets.length; i++) {
             this.widgets[i].onRemove?.();
           }
-          this.widgets.length = 1;
+          this.widgets.length = originalWidgetCount;
         }
 
-        const v = [...text];
-        if (!v[0]) {
-          v.shift();
-        }
-        for (const list of v) {
-          const w = ComfyWidgets["STRING"](
+        if (selectedCheckpoint) {
+          const displayWidget = ComfyWidgets["STRING"](
             this,
-            "display",
+            "selected_checkpoint_display",
             ["STRING", { multiline: false }],
             app
           ).widget;
-          w.inputEl.readOnly = true;
-          w.inputEl.style.opacity = 0.6;
-          w.value = `Selected: ${list}`;
+          displayWidget.inputEl.readOnly = true;
+          displayWidget.inputEl.style.opacity = 0.6;
+          displayWidget.inputEl.style.fontWeight = "bold";
+          displayWidget.inputEl.style.backgroundColor = "#2a2a2a";
+          displayWidget.value = `Selected: ${selectedCheckpoint}`;
         }
 
         requestAnimationFrame(() => {
@@ -43,48 +43,48 @@ app.registerExtension({
         });
       }
 
-      // When the node is executed we will be sent the selected checkpoint, display this in the widget
+      // When the node is executed we will be sent the selected checkpoint
       const onExecuted = nodeType.prototype.onExecuted;
       nodeType.prototype.onExecuted = function (message) {
         onExecuted?.apply(this, arguments);
-        populate.call(this, message.text);
+        if (message.text && message.text[0]) {
+          populateCheckpoint.call(this, message.text[0]);
+        }
       };
 
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function () {
         onConfigure?.apply(this, arguments);
-        if (this.widgets_values?.length) {
-          populate.call(
-            this,
-            this.widgets_values.slice(+this.widgets_values.length > 1)
-          );
+        if (this.widgets_values?.length > 2) {
+          populateCheckpoint.call(this, this.widgets_values[2]);
         }
       };
     }
 
     if (nodeData.name === "RandomLoRALoader") {
-      function populate(text) {
+      function populateLoRA(displayData) {
         if (this.widgets) {
-          for (let i = 1; i < this.widgets.length; i++) {
+          // Remove existing display widgets (preserve input widgets: subfolder, strength_model, strength_clip, seed)
+          const originalWidgetCount = 4;
+          for (let i = originalWidgetCount; i < this.widgets.length; i++) {
             this.widgets[i].onRemove?.();
           }
-          this.widgets.length = 1;
+          this.widgets.length = originalWidgetCount;
         }
 
-        const v = [...text];
-        if (!v[0]) {
-          v.shift();
-        }
-        for (const list of v) {
-          const w = ComfyWidgets["STRING"](
-            this,
-            "display",
-            ["STRING", { multiline: true }],
-            app
-          ).widget;
-          w.inputEl.readOnly = true;
-          w.inputEl.style.opacity = 0.6;
-          w.value = list;
+        if (displayData && displayData.length > 0) {
+          for (const text of displayData) {
+            const displayWidget = ComfyWidgets["STRING"](
+              this,
+              "lora_display",
+              ["STRING", { multiline: true }],
+              app
+            ).widget;
+            displayWidget.inputEl.readOnly = true;
+            displayWidget.inputEl.style.opacity = 0.6;
+            displayWidget.inputEl.style.backgroundColor = "#2a2a2a";
+            displayWidget.value = text;
+          }
         }
 
         requestAnimationFrame(() => {
@@ -100,21 +100,20 @@ app.registerExtension({
         });
       }
 
-      // When the node is executed we will be sent the selected lora and trigger words, display this in the widget
+      // When the node is executed we will be sent the selected lora and trigger words
       const onExecuted = nodeType.prototype.onExecuted;
       nodeType.prototype.onExecuted = function (message) {
         onExecuted?.apply(this, arguments);
-        populate.call(this, message.text);
+        if (message.text) {
+          populateLoRA.call(this, message.text);
+        }
       };
 
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function () {
         onConfigure?.apply(this, arguments);
-        if (this.widgets_values?.length) {
-          populate.call(
-            this,
-            this.widgets_values.slice(+this.widgets_values.length > 1)
-          );
+        if (this.widgets_values?.length > 4) {
+          populateLoRA.call(this, this.widgets_values[4]);
         }
       };
     }
