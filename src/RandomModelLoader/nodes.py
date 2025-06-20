@@ -219,9 +219,9 @@ class RandomCheckpointLoader:
                     None,
                 )
                 if node:
-                    node["widgets_values"] = [subfolder, seed, selected_checkpoint]
+                    node["widgets_values"] = [[selected_checkpoint]]
         
-        return {"ui": {"selected_checkpoint": [selected_checkpoint]}, "result": (model, clip, vae, selected_checkpoint)}
+        return {"ui": {"text": [selected_checkpoint]}, "result": (model, clip, vae, selected_checkpoint)}
     
     @classmethod
     def IS_CHANGED(s, subfolder, seed):
@@ -334,7 +334,12 @@ class RandomLoRALoader:
             print(f"Error extracting trigger words for {selected_lora}: {e}")
             trigger_words = ""
         
-        # Update workflow with selected LoRA and trigger words for UI display
+        # Prepare display text
+        display_text = [f"Selected: {selected_lora}"]
+        if trigger_words and trigger_words.strip():
+            display_text.append(f"Triggers: {trigger_words}")
+        
+        # Update workflow with display text for UI display
         if unique_id is not None and extra_pnginfo is not None:
             if not isinstance(extra_pnginfo, list):
                 print("Error: extra_pnginfo is not a list")
@@ -350,9 +355,9 @@ class RandomLoRALoader:
                     None,
                 )
                 if node:
-                    node["widgets_values"] = [subfolder, strength_model, strength_clip, seed, selected_lora, trigger_words]
+                    node["widgets_values"] = [display_text]
         
-        return {"ui": {"selected_lora": [selected_lora], "trigger_words": [trigger_words]}, "result": (model_out, clip_out, selected_lora, trigger_words)}
+        return {"ui": {"text": display_text}, "result": (model_out, clip_out, selected_lora, trigger_words)}
     
     @classmethod
     def IS_CHANGED(s, model, clip, subfolder, strength_model, strength_clip, seed):
