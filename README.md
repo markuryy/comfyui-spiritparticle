@@ -89,6 +89,10 @@ Randomly selects a LoRA from a specified subfolder within your LoRAs directory.
 - Includes standard LoRA strength controls
 - Uses ComfyUI's native LoRA loader internally
 - Returns the selected LoRA filename as a string output
+- **Automatic trigger word detection** with priority system:
+  1. **Txt files** (highest priority) - looks for `.txt` files with same name as LoRA
+  2. **CivitAI API** - fetches trigger words from CivitAI database
+  3. **Safetensors metadata** - reads embedded metadata from the file
 
 #### Parameters
 - **model**: Input model to apply LoRA to
@@ -102,6 +106,7 @@ Randomly selects a LoRA from a specified subfolder within your LoRAs directory.
 - **model**: The model with LoRA applied
 - **clip**: The CLIP model with LoRA applied
 - **selected_lora**: String showing which LoRA file was selected
+- **trigger_words**: Automatically detected trigger words for the selected LoRA
 
 ### Organization Tips
 
@@ -126,11 +131,14 @@ models/checkpoints/
 models/loras/
 ├── SDXL/
 │   ├── character1.safetensors
+│   ├── character1.txt          # Custom trigger words: "anime girl, blue hair"
 │   └── character2.safetensors
 ├── Styles/
 │   ├── oil_painting.safetensors
+│   ├── oil_painting.txt        # Custom trigger words: "oil painting style"
 │   └── watercolor.safetensors
 └── Concepts/
     ├── concept1.safetensors
+    ├── concept1.txt            # Custom trigger words: "futuristic, cyberpunk"
     └── concept2.safetensors
 ```

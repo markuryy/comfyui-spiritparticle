@@ -67,8 +67,26 @@ def extract_trigger_words_from_metadata(meta):
 
     return list(triggers_found)
 
+def get_trigger_from_txt_file(lora_path):
+    """Get trigger words from txt file with same name as LoRA file"""
+    try:
+        # Get the base name without extension and construct txt file path
+        base_name = os.path.splitext(lora_path)[0]
+        txt_path = base_name + ".txt"
+        
+        if os.path.exists(txt_path):
+            with open(txt_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:
+                    print(f"DEBUG: Found trigger words in txt file {txt_path}: {content}")
+                    return content
+        return ""
+    except Exception as e:
+        print(f"Error reading txt file for {lora_path}: {e}")
+        return ""
+
 def get_lora_metadata(lora_name):
-    """Get LoRA metadata with caching, trying local first then API fallback"""
+    """Get LoRA metadata with caching, priority: txt file > CivitAI > safetensors metadata > none"""
     db_path = os.path.join(os.path.dirname(__file__), 'lora_metadata_db.json')
     
     # Load existing cache
@@ -93,22 +111,31 @@ def get_lora_metadata(lora_name):
             print(f"Error saving metadata cache: {e}")
         return db[lora_name]
     
-    # Try local metadata first
-    meta = parse_local_safetensors_metadata(lora_path)
-    local_triggers = extract_trigger_words_from_metadata(meta)
+    triggers_str = ""
     
-    # If no local triggers found, try CivitAI API
-    if not local_triggers:
+    # Priority 1: Try txt file first (highest priority)
+    txt_triggers = get_trigger_from_txt_file(lora_path)
+    if txt_triggers:
+        triggers_str = txt_triggers
+    else:
+        # Priority 2: Try CivitAI API
         try:
             LORAsha256 = calculate_sha256(lora_path)
             model_info = get_model_version_info(LORAsha256)
             if model_info.get("trainedWords"):
-                local_triggers = model_info["trainedWords"]
+                api_triggers = model_info["trainedWords"]
+                if isinstance(api_triggers, list):
+                    triggers_str = ", ".join(api_triggers)
+                elif isinstance(api_triggers, str):
+                    triggers_str = api_triggers
         except Exception as e:
             print(f"Error fetching from CivitAI API: {e}")
-    
-    # Format trigger words as comma-separated string
-    triggers_str = ", ".join(local_triggers) if local_triggers else ""
+        
+        # Priority 3: If still no triggers, try local safetensors metadata
+        if not triggers_str:
+            meta = parse_local_safetensors_metadata(lora_path)
+            local_triggers = extract_trigger_words_from_metadata(meta)
+            triggers_str = ", ".join(local_triggers) if local_triggers else ""
     
     # Cache the result
     db[lora_name] = {"triggerWords": triggers_str}
